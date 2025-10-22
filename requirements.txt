@@ -1,0 +1,19 @@
+FastAPI
+pydantic
+Pillow
+pytesseract
+SpeechRecognition
+uvicorn
+python-dotenv
+aiofiles
+# Optional LLM clients (stubs used by default)
+openai
+requests
+supabase
+python-jose[cryptography]
+passlib[bcrypt]
+pydantic[email]
+python-multipart
+pydub
+faster-whisper
+google-generativeai==0.3.1
