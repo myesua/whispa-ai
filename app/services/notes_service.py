@@ -2,8 +2,6 @@ from typing import Optional
 from app.services.llm_client import LLMClient
 from app.services.supabase_client import supabase
 from app.utils.extract_title_body import extract_title_and_body
-from app.services.audio_service import AudioService
-from app.services.ocr_service import OCRService
 
 llm = LLMClient()
 
@@ -55,5 +53,6 @@ class NotesService:
        
         saved = None
         if user_id and not privacy_mode:
+            print("Got here #")
             saved = await persist_note_if_allowed(user_id=user_id, voice_text=voice_text, title=title, body=body, privacy_mode=privacy_mode)
         return {"title": title, "content": body, "stored": bool(saved), "session_id": session_id}

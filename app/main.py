@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, notes, ocr, audio
+from .routers import auth, notes, ocr, audio, linear
 from .middleware.auth import get_current_user
 from dotenv import load_dotenv
 
@@ -21,6 +21,7 @@ app.include_router(auth.router)
 app.include_router(notes.router, dependencies=[Depends(get_current_user)])
 app.include_router(ocr.router, dependencies=[Depends(get_current_user)])
 app.include_router(audio.router, dependencies=[Depends(get_current_user)])
+app.include_router(linear.router, prefix="/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
 
 @app.get("/")
 async def root():
