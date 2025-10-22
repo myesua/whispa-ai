@@ -1,17 +1,9 @@
 import base64
-import io
 import uuid
-from datetime import timedelta
 from app.services.supabase_client import supabase
 from fastapi import HTTPException
 
-import base64
-import uuid
-from datetime import timedelta
-from app.services.supabase_client import supabase
-from fastapi import HTTPException
-
-async def base64_to_temp_url(base64_str: str, expires_in: int = 180) -> str:
+async def base64_to_temp_url(base64_str: str, expires_in: int = 300) -> str:
     """
     Convert base64 image string to a short-lived Supabase signed URL.
 
