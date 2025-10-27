@@ -1,11 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
-import base64
-import io
-import uuid
-from PIL import Image
-import pytesseract
 from app.services.ocr_service import OCRService
 
 router = APIRouter()
@@ -14,7 +9,7 @@ class OCRRequest(BaseModel):
     image: str
     session_id: Optional[str] = None
 
-@router.post("/ocr")
+@router.post("/")
 async def process_ocr(request: Request):
     """Process an image with OCR and Gemini Vision."""
     try:

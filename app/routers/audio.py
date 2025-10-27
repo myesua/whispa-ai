@@ -3,12 +3,13 @@ from app.services.audio_service import AudioService
 
 router = APIRouter()
 
-@router.post("/audio/", summary="Process base64 audio payload")
+@router.post("/transcribe", summary="Process base64 audio payload")
 async def process_audio(request: Request = None):
     try:
         service = AudioService()
         req_data = await request.json()
         b64 = req_data.get('audio') or req_data.get('audio_data')
+        b64 = b64.split(',')[1] if ',' in b64 else b64
         if not b64:
             raise HTTPException(status_code=400, detail="No audio provided")
         text = service.process_audio(b64)

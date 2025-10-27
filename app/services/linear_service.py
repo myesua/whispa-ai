@@ -11,12 +11,7 @@ class LinearResponse:
 class LinearService:
     def __init__(self):
         self.api_url = settings.linear_api_url
-        self.headers = {
-            "Authorization": f"{settings.linear_api_key}",
-            "Content-Type": "application/json",
-        }
-
-    def create_issue(self, title: str, description: str, team_id: str, priority: int = 1, label_ids: list = None) -> LinearResponse:
+    def create_issue(self, title: str, description: str, team_id: str, priority: int = 1, label_ids: list = None, linear_api_key: str = None) -> LinearResponse:
         print(f"Creating issue with title: {title}, description: {description}, team_id: {team_id}, priority: {priority}, label_ids: {label_ids}")
         """
         Create an issue in Linear via API.
@@ -70,12 +65,16 @@ class LinearService:
 
         response = requests.post(
             self.api_url,
-            headers=self.headers,
+            headers={
+            "Authorization": f"{linear_api_key}",
+            "Content-Type": "application/json",
+        },
             json={"query": mutation, "variables": variables},
         )
 
         if response.status_code == 200:
             data = response.json()
+            print('data#: ', data)
             if data.get("data", {}).get("issueCreate", {}).get("success"):
                 return data["data"]["issueCreate"]["issue"]
             else:
