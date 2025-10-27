@@ -18,9 +18,9 @@ app.add_middleware(
 
 app.include_router(auth.router)
 # Protect other routes with authentication
-app.include_router(notes.router, dependencies=[Depends(get_current_user)])
-app.include_router(ocr.router, dependencies=[Depends(get_current_user)])
-app.include_router(audio.router, dependencies=[Depends(get_current_user)])
+app.include_router(notes.router, prefix="/notes", tags=["notes"], dependencies=[Depends(get_current_user)])
+app.include_router(ocr.router, prefix="/ocr", tags=["ocr"], dependencies=[Depends(get_current_user)])
+app.include_router(audio.router, prefix="/audio", tags=["audio"], dependencies=[Depends(get_current_user)])
 app.include_router(linear.router, prefix="/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
 
 @app.get("/")

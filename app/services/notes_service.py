@@ -2,6 +2,7 @@ from typing import Optional
 from app.services.llm_client import LLMClient
 from app.services.supabase_client import supabase
 from app.utils.extract_title_body import extract_title_and_body
+import uuid
 
 llm = LLMClient()
 
@@ -47,12 +48,13 @@ class NotesService:
         privacy_mode: bool = True,
         user_id: Optional[str] = None
     ):
+        if image_base64 and image_base64.startswith('data:image'):
+                image_base64 = image_base64.split(',')[1]
         llm_resp = await self.llm.analyze_multimodal(image_base64=image_base64, transcription=voice_text, text=provided_text)
         markdown = llm_resp["response"]
         title, body = extract_title_and_body(markdown)
        
         saved = None
         if user_id and not privacy_mode:
-            print("Got here #")
             saved = await persist_note_if_allowed(user_id=user_id, voice_text=voice_text, title=title, body=body, privacy_mode=privacy_mode)
-        return {"title": title, "content": body, "stored": bool(saved), "session_id": session_id}
+        return {"title": title, "content": body, "stored": bool(saved), "session_id": session_id or str(uuid.uuid4())}

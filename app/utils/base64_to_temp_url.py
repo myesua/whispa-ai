@@ -16,7 +16,7 @@ async def base64_to_temp_url(base64_str: str, expires_in: int = 300) -> str:
     try:
         image_bytes = base64.b64decode(base64_str)
         file_id = str(uuid.uuid4()) + ".jpg"
-        path = f"temp/{file_id}"
+        path = f"private/{file_id}"
 
         upload_res = supabase.storage.from_("temp").upload(path, image_bytes)
 

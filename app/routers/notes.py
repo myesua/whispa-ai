@@ -5,8 +5,9 @@ from app.services.notes_service import NotesService, persist_note_if_allowed
 from app.services.supabase_client import supabase
 from pydantic import BaseModel
 from app.middleware.auth import get_current_user
+import uuid
 
-router = APIRouter(prefix="/notes", tags=["notes"])
+router = APIRouter()
 security = HTTPBearer()
 
 
@@ -26,7 +27,7 @@ class NotePersistPayload(BaseModel):
     privacy_mode: Optional[bool] = True
 
 
-@router.post("/", summary="Generate notes from image and optional audio")
+@router.post("/generate", summary="Generate notes from image and optional audio")
 async def generate_notes(request: Request, user: dict = Depends(get_current_user)):
     try:
         try:
@@ -35,7 +36,7 @@ async def generate_notes(request: Request, user: dict = Depends(get_current_user
             data = {}
         image_b64 = data.get("image_b64")
         voice_text = data.get("voice_text")
-        session_id = data.get("session_id")
+        session_id = data.get("session_id") or str(uuid.uuid4())
         provided_text = data.get("provided_text")
         privacy_mode = data.get("privacy_mode", True)
 
