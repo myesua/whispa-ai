@@ -1,25 +1,24 @@
-
-import asyncio
-import google.generativeai as genai
+from google.genai import Client 
 from openai import OpenAI
-from typing import Optional, Dict, Any, List
+from typing import Optional, List, AsyncGenerator
 from fastapi import HTTPException
 from app.config import settings
 from app.utils.base64_to_temp_url import base64_to_temp_url
-
+import os
+import io
+import base64
 
 class LLMClient:
     """Unified client for Gemini and OpenAI multimodal intelligence."""
 
     def __init__(self):
         self.provider = settings.llm_provider.lower()
-        self.gemini_key = settings.gemini_api_key
         self.openai_key = settings.openai_api_key
+        self.client = Client(api_key=settings.gemini_api_key) 
+        self.aclient = self.client.aio
         self.openai_endpoint = "https://api.openai.com/v1/chat/completions"
-        self.gemini_model = settings.gemini_model
+        self.gemini_model = settings.gemini_model or "gemini-2.5-flash"
 
-        # Configure Gemini SDK globally
-        genai.configure(api_key=self.gemini_key)
         # Configure OpenAI SDK globally
         self.openai_client = OpenAI(api_key=self.openai_key)
 
@@ -36,7 +35,7 @@ class LLMClient:
         """Generate a rich, structured QA prompt for Whispa assistant."""
         prompt = f"""
         You are Whispa, an AI QA assistant that helps generate insightful notes from user feedback sessions.
-        
+        **CRITICAL INSTRUCTION: Do not include any introductory phrases, greetings, or conversational filler (e.g., "Of course!", "As an AI..."). Start your response immediately with the formatted analysis.**
         Please analyze the following transcription and generate QA notes:
         
         TRANSCRIPTION:
@@ -115,7 +114,7 @@ class LLMClient:
         return prompt.strip()
 
     # -------------------------------------------------
-    # MULTIMODAL ANALYSIS
+    # MULTIMODAL ANALYSIS (STREAMING)
     # -------------------------------------------------
     async def analyze_multimodal(
         self,
@@ -123,52 +122,90 @@ class LLMClient:
         text: Optional[str] = None,
         transcription: Optional[str] = None,
         qa_type: str = "general",
-        output_format: str = "markdown"
-    ) -> Dict[str, Any]:
-        """Analyze multimodal input: image, text, and spoken instructions."""
-        image_url = None
-        if image_base64:
-            image_url = await base64_to_temp_url(image_base64)
+        output_format: str = "markdown",
+        image_file: str = None,
+    ) -> AsyncGenerator[str, None]:
+        """Analyze multimodal input and stream the response."""
+        
+        temp_file_path = None
+        uploaded_file_name = None 
 
-        combined_text = transcription or text or "(no input)"
-        prompt = self._create_prompt(
-            transcription_text=combined_text,
-            screenshot_texts=[f"Image reference: {image_url}"] if image_url else None,
-            qa_type=qa_type,
-            format=output_format
-        )
-
-        # -------------------------------------------------
-        # GEMINI SDK IMPLEMENTATION
-        # -------------------------------------------------
-        if self.provider == "gemini":
-            try:
-                model = genai.GenerativeModel(self.gemini_model or "gemini-2.0-flash")
-                inputs = [prompt]
+        try:
+            combined_text = transcription or text or "(no input)"
+            if self.provider == "gemini":
                 if image_base64:
-                    inputs.append({
-                        "mime_type": "image/jpeg",
-                        "data": image_base64
-                    })
-                response = await asyncio.to_thread(model.generate_content, inputs)
-                text_out = response.text
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Gemini SDK error: {str(e)}")
+                    try:
+                        image_bytes = base64.b64decode(image_base64)
+                        # Create an in-memory file object
+                        image_file_like = io.BytesIO(image_bytes)
 
-        # -------------------------------------------------
-        # OPENAI FALLBACK
-        # -------------------------------------------------
-        elif self.provider == "openai":
-            response = await self.openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are Whispa, a multimodal QA assistant."},
-                    {"role": "user", "content": [{"type": "text", "text": prompt}]}
-                ]
-            )
-            text_out = response.choices[0].message.content
+                        uploaded_file = await self.aclient.files.upload(
+                            file=image_file_like,
+                            config={
+                                'mime_type': 'image/jpeg' 
+                                # You can also set a display name here: 'display_name': 'screenshot.jpg'
+                             }
+                            # file_name='screenshot.jpg'
+                        )
+                        uploaded_file_name = uploaded_file.name
+                        screenshot_texts = [f"Image reference: {uploaded_file_name}"]
+                    except Exception as e:
+                        raise HTTPException(status_code=500, detail=f"In-memory upload failed: {str(e)}")
+                else:
+                    uploaded_file = await self.aclient.files.upload(
+                        file=image_file
+                    )
+                    uploaded_file_name = uploaded_file.name
 
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported provider: {self.provider}")
+                    screenshot_texts = [f"Image reference: {uploaded_file_name}"]
+                    # screenshot_texts = None
 
-        return {"success": True, "response": text_out.strip()}
+                prompt = self._create_prompt(
+                    transcription_text=combined_text,
+                    screenshot_texts=screenshot_texts,
+                    qa_type=qa_type,
+                    format=output_format
+                )
+
+            
+                contents = [prompt]
+                if uploaded_file_name:
+                    # Append the uploaded file object to the contents list
+                    contents.append(uploaded_file) 
+
+                response_stream = await self.aclient.models.generate_content_stream(
+                    model=self.gemini_model,
+                    contents=contents
+                )
+
+                # 2d. Yield Chunks
+                async for chunk in response_stream:
+                    if chunk.text:
+                        yield chunk.text
+
+        
+            elif self.provider == "openai":
+                # NOTE: Image handling for OpenAI requires a more complex structure (e.g., base64 in messages)
+                # which is outside the scope of this fix, but the text streaming pattern is similar:
+            
+                stream = await self.openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are Whispa, a multimodal QA assistant."},
+                        {"role": "user", "content": prompt} # Simplified prompt for text-only
+                    ],
+                    stream=True
+                )
+                async for chunk in stream:
+                    content = chunk.choices[0].delta.content
+                    if content:
+                        yield content
+
+            else:
+                raise HTTPException(status_code=400, detail=f"Unsupported provider: {self.provider}")
+
+        finally:
+            if uploaded_file_name:
+                await self.aclient.files.delete(name=uploaded_file_name)
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)

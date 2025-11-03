@@ -2,22 +2,23 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional
 from app.services.notes_service import NotesService, persist_note_if_allowed
-from app.services.supabase_client import supabase
+# from app.services.supabase_client import supabase
 from pydantic import BaseModel
 from app.middleware.auth import get_current_user
 import uuid
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 security = HTTPBearer()
 
 
-async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    # Use server supabase client to validate token and return user id
-    token = credentials.credentials
-    user_resp = supabase.auth.get_user(token)
-    if user_resp.error or not getattr(user_resp, "user", None):
-        raise HTTPException(status_code=401, detail="Invalid token")
-    return user_resp.data.user.id
+# async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)):
+#     # Use server supabase client to validate token and return user id
+#     token = credentials.credentials
+#     user_resp = supabase.auth.get_user(token)
+#     if user_resp.error or not getattr(user_resp, "user", None):
+#         raise HTTPException(status_code=401, detail="Invalid token")
+#     return user_resp.data.user.id
 
 
 class NotePersistPayload(BaseModel):
@@ -25,6 +26,60 @@ class NotePersistPayload(BaseModel):
     voice_text: Optional[str] = None
     generated_notes: Optional[str] = None
     privacy_mode: Optional[bool] = True
+
+
+@router.post("/generate/stream", summary="Generate notes from image/audio and stream response")
+async def generate_notes_stream(request: Request, user: dict = Depends(get_current_user)):
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body provided.")
+    
+    image_b64 = data.get("image_b64")
+    voice_text = data.get("voice_text")
+    provided_text = data.get("provided_text")
+    
+    service = NotesService()
+    
+    try:
+        stream_generator = service.generate_notes_stream(
+            image_base64=image_b64, 
+            voice_text=voice_text, 
+            provided_text=provided_text
+        )
+    except HTTPException as e:
+        raise e
+    return StreamingResponse(
+        stream_generator, 
+        media_type="text/markdown"
+)
+
+@router.post("/save_notes", summary="Persist the final generated notes")
+async def save_final_notes(request: Request, user: dict = Depends(get_current_user)):
+    try:
+        data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body provided.")
+        
+    # Client sends the assembled markdown back to be saved
+    final_markdown = data.get("final_markdown")
+    voice_text = data.get("voice_text") # Original transcription text
+    session_id = data.get("session_id") or str(uuid.uuid4())
+    privacy_mode = data.get("privacy_mode", True)
+    
+    if not final_markdown:
+        raise HTTPException(status_code=400, detail="Final markdown content is required for saving.")
+
+    service = NotesService()
+    result = await service.process_final_notes(
+        markdown_text=final_markdown,
+        voice_text=voice_text,
+        user_id=user.get("id"),
+        privacy_mode=privacy_mode,
+        session_id=session_id
+    )
+    
+    return {"success": True, "notes": result}
 
 
 @router.post("/generate", summary="Generate notes from image and optional audio")

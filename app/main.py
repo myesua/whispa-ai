@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, notes, ocr, audio, linear
+from .routers import auth, notes, ocr, audio, linear, user
 from .middleware.auth import get_current_user
 from dotenv import load_dotenv
 
@@ -22,9 +22,10 @@ app.include_router(notes.router, prefix="/notes", tags=["notes"], dependencies=[
 app.include_router(ocr.router, prefix="/ocr", tags=["ocr"], dependencies=[Depends(get_current_user)])
 app.include_router(audio.router, prefix="/audio", tags=["audio"], dependencies=[Depends(get_current_user)])
 app.include_router(linear.router, prefix="/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
+app.include_router(user.router, prefix="/user", tags=["user"], dependencies=[Depends(get_current_user)])
 
 @app.get("/")
-async def root():
+async def root():   
     return {"message": "Welcome to the Whispa AI Notes App!"}
 
 
