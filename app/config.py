@@ -30,6 +30,7 @@ class Settings:
     privacy_mode: bool = os.getenv("PRIVACY_MODE", "true").lower() in ("1", "true", "yes")
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+    PORT: str = os.getenv("PORT", "5000")
 
 
 settings = Settings()

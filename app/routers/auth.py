@@ -22,6 +22,8 @@ async def register(payload: RegisterPayload):
 
     user = getattr(resp, "user", None)
     error = getattr(resp, "error", None)
+    
+    session = getattr(resp, 'session', None)
 
     if error:
         raise HTTPException(status_code=400, detail=str(error))
@@ -39,10 +41,12 @@ async def register(payload: RegisterPayload):
     supabase.table("profiles").upsert(profile_payload).execute()
 
     return {
-        "id": user.id,
-        "email": payload.email,
+        # "id": user.id,
+        # "email": payload.email,
         "full_name": payload.full_name,
-        "privacy_mode": payload.privacy_mode
+        "privacy_mode": payload.privacy_mode,
+        "access_token": session.access_token if session else None,
+        # "token_type": "bearer"
     }
 
 class LoginPayload(BaseModel):
@@ -75,8 +79,10 @@ async def login(payload: LoginPayload):
     profile_data = getattr(profile_resp, "data", None) or {}
 
     return {
-        "email": user.email,
+        # "id": user.id,
+        # "email": user.email,
         "access_token": access_token,
-        "token_type": "bearer",
-        "full_name": profile_data.get("full_name", "")
+        # "token_type": "bearer",
+        "full_name": profile_data.get("full_name", ""),
+        "privacy_mode": profile_data.get("privacy_mode", True)
     }
