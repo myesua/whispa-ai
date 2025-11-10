@@ -1,0 +1,8 @@
+# prometheus.yml
+global:
+  scrape_interval: 15s # How often Prometheus scrapes targets
+
+scrape_configs:
+  - job_name: 'whispa-ai'
+    static_configs:
+      - targets: ['localhost:5000'] # Replace with your FastAPI app's host:port

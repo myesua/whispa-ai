@@ -7,6 +7,8 @@ from pydantic import BaseModel
 from app.middleware.auth import get_current_user
 import uuid
 from fastapi.responses import StreamingResponse
+from app.dependencies import get_usage_service
+from app.services.usage_service import UsageService
 
 router = APIRouter()
 security = HTTPBearer()
@@ -29,7 +31,8 @@ class NotePersistPayload(BaseModel):
 
 
 @router.post("/generate/stream", summary="Generate notes from image/audio and stream response")
-async def generate_notes_stream(request: Request, user: dict = Depends(get_current_user)):
+async def generate_notes_stream(request: Request, user: dict = Depends(get_current_user), usage_service: UsageService = Depends(get_usage_service)):
+    await usage_service.check_and_increment_note_count(user_id=user.get("id"))
     try:
         data = await request.json()
     except Exception:
@@ -38,6 +41,7 @@ async def generate_notes_stream(request: Request, user: dict = Depends(get_curre
     image_b64 = data.get("image_b64")
     voice_text = data.get("voice_text")
     provided_text = data.get("provided_text")
+    qa_type = data.get("qa_type")
     
     service = NotesService()
     
@@ -45,7 +49,8 @@ async def generate_notes_stream(request: Request, user: dict = Depends(get_curre
         stream_generator = service.generate_notes_stream(
             image_base64=image_b64, 
             voice_text=voice_text, 
-            provided_text=provided_text
+            provided_text=provided_text,
+            qa_type=qa_type
         )
     except HTTPException as e:
         raise e
@@ -83,7 +88,8 @@ async def save_final_notes(request: Request, user: dict = Depends(get_current_us
 
 
 @router.post("/generate", summary="Generate notes from image and optional audio")
-async def generate_notes(request: Request, user: dict = Depends(get_current_user)):
+async def generate_notes(request: Request, user: dict = Depends(get_current_user), usage_service: UsageService = Depends(get_usage_service)):
+    await usage_service.check_and_increment_note_count(user_id=user.get("id"))
     try:
         try:
             data = await request.json()

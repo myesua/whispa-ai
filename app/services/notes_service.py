@@ -44,6 +44,7 @@ class NotesService:
         image_base64: Optional[str] = None,
         voice_text: Optional[str] = None,
         provided_text: Optional[str] = None,
+        qa_type: Optional[str] = "general"
     ) -> AsyncGenerator[str, None]:
         """Calls the LLM stream and yields text chunks."""
         if image_base64 and image_base64.startswith('data:image'):
@@ -52,7 +53,8 @@ class NotesService:
         async for chunk in self.llm.analyze_multimodal(
             image_base64=image_base64, 
             transcription=voice_text, 
-            text=provided_text
+            text=provided_text,
+            qa_type=qa_type
         ):
             yield chunk
             

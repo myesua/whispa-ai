@@ -3,10 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from .routers import auth, notes, ocr, audio, linear, user
 from .middleware.auth import get_current_user
 from dotenv import load_dotenv
+from app.middleware.prometheus import PrometheusMiddleware, metrics_endpoint
 
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(PrometheusMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,6 +18,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.add_route("/metrics", metrics_endpoint)
 
 app.include_router(auth.router)
 # Protect other routes with authentication

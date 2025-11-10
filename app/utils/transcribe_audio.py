@@ -2,17 +2,28 @@ import base64
 import tempfile
 from faster_whisper import WhisperModel
 
-# ✅ Global model cache (loaded once)
 _whisper_model = None
 
 def get_whisper_model():
     """Lazy-load the Faster-Whisper model once and reuse it."""
     global _whisper_model
     if _whisper_model is None:
-        # model size: tiny, base, small, medium, large-v2
-        _whisper_model = WhisperModel("small", device="cpu")  # or "cuda" for GPU
+        _whisper_model = WhisperModel("small", device="cpu") 
     return _whisper_model
 
+def transcribe_file_path(audio_path: str) -> str:
+    try:
+        model = get_whisper_model()
+        
+        segments, info = model.transcribe(audio_path, language="en",
+            task="translate")
+            
+        text = " ".join([seg.text for seg in segments]).strip()
+
+        return text or "No speech detected"
+
+    except Exception as e:
+        return f"Error transcribing audio: {str(e)}"
 
 def transcribe_base64_audio(audio_base64: str, file_suffix: str) -> str:
     """
@@ -25,8 +36,8 @@ def transcribe_base64_audio(audio_base64: str, file_suffix: str) -> str:
             tmp.flush()
 
             model = get_whisper_model()
-            segments, info = model.transcribe(tmp.name, language="en", # Assuming you are speaking English
-                task="transcribe")
+            segments, info = model.transcribe(tmp.name, language="en",
+                task="translate")
             text = " ".join([seg.text for seg in segments]).strip()
 
             return text or "No speech detected"

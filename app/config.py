@@ -25,6 +25,7 @@ class Settings:
     notion_api_key: str = os.getenv("NOTION_API_KEY", "")
     linear_api_key: str = os.getenv("LINEAR_API_KEY", "")
     linear_api_url: str = os.getenv("LINEAR_API_URL", "")
+    linear_attachment_url: str = os.getenv("LINEAR_ATTACHMENT_URL", "")
 
     # Privacy: if True, do not persist any user content to disk/database
     privacy_mode: bool = os.getenv("PRIVACY_MODE", "true").lower() in ("1", "true", "yes")
