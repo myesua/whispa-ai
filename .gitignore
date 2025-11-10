@@ -63,3 +63,4 @@ __pycache__
 venv/
 client.rest
 sample_files/
+tests/
