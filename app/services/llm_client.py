@@ -1,12 +1,11 @@
+import os
+import io
+import base64
 from google.genai import Client 
 from openai import OpenAI
 from typing import Optional, List, AsyncGenerator
 from fastapi import HTTPException
 from app.config import settings
-from app.utils.base64_to_temp_url import base64_to_temp_url
-import os
-import io
-import base64
 
 class LLMClient:
     """Unified client for Gemini and OpenAI multimodal intelligence."""
@@ -14,12 +13,18 @@ class LLMClient:
     def __init__(self):
         self.provider = settings.llm_provider.lower()
         self.openai_key = settings.openai_api_key
-        self.client = Client(api_key=settings.gemini_api_key) 
-        self.aclient = self.client.aio
-        self.openai_endpoint = "https://api.openai.com/v1/chat/completions"
-        self.gemini_model = settings.gemini_model or "gemini-2.5-flash"
+        
+        if settings.gemini_api_key:
+            self.client = Client(api_key=settings.gemini_api_key) 
+            self.aclient = self.client.aio
+            # self.gemini_model = settings.gemini_model or "gemini-2.5-flash"
+            self.gemini_model = "gemini-2.5-flash"
+        else:
+            self.client = None
+            self.aclient = None
+            self.gemini_model = "gemini-2.5-flash"
 
-        # Configure OpenAI SDK globally
+        self.openai_endpoint = "https://api.openai.com/v1/chat/completions"
         self.openai_client = OpenAI(api_key=self.openai_key)
 
     # -------------------------------------------------
@@ -42,11 +47,8 @@ class LLMClient:
         {transcription_text}
         """
         if screenshot_texts:
-            prompt += "\n\nSCREENSHOT OCR TEXT:\n"
-            for i, text in enumerate(screenshot_texts):
-                prompt += f"Screenshot {i+1}: {text}\n"
+            prompt += "\n\nCRITICAL: Analyze the images provided in this request against the context of the transcription."
 
-        # --- QA-specific instructions ---
         if qa_type == "bug":
             prompt += """
             Focus on identifying bugs and technical issues mentioned in the feedback.
@@ -83,7 +85,6 @@ class LLMClient:
             4. Prioritized recommendations based on user impact
             """
 
-        # --- Format instructions ---
         if format == "markdown":
             prompt += """
             Format your response as a well-structured Markdown document with:
@@ -93,7 +94,7 @@ class LLMClient:
             - Code blocks for any technical details
             - A summary section with key takeaways
             """
-        else:  # json
+        else: 
             prompt += """
             Format your response as a valid JSON object with the following structure:
             {
@@ -118,7 +119,7 @@ class LLMClient:
     # -------------------------------------------------
     async def analyze_multimodal(
         self,
-        image_base64: Optional[str] = None,
+        images_base64: Optional[list[str]] = None,
         text: Optional[str] = None,
         transcription: Optional[str] = None,
         qa_type: str = "general",
@@ -128,71 +129,83 @@ class LLMClient:
         """Analyze multimodal input and stream the response."""
         
         temp_file_path = None
-        uploaded_file_name = None 
+        uploaded_files_map = {} 
 
         try:
             combined_text = transcription or text or "(no input)"
+            
             if self.provider == "gemini":
-                if image_base64:
-                    try:
-                        image_bytes = base64.b64decode(image_base64)
-                        # Create an in-memory file object
-                        image_file_like = io.BytesIO(image_bytes)
+                if not self.aclient:
+                     raise HTTPException(status_code=500, detail="Gemini client not initialized. Check GEMINI_API_KEY in settings.")
 
-                        uploaded_file = await self.aclient.files.upload(
-                            file=image_file_like,
-                            config={
-                                'mime_type': 'image/jpeg' 
-                                # You can also set a display name here: 'display_name': 'screenshot.jpg'
-                             }
-                            # file_name='screenshot.jpg'
-                        )
-                        uploaded_file_name = uploaded_file.name
-                        screenshot_texts = [f"Image reference: {uploaded_file_name}"]
-                    except Exception as e:
-                        raise HTTPException(status_code=500, detail=f"In-memory upload failed: {str(e)}")
-                else:
+                uploaded_file_objects = []
+                screenshot_texts = [] 
+
+                if images_base64:
+                    for i, image_base64 in enumerate(images_base64):
+                        if image_base64.startswith('data:image'):
+                            image_base64 = image_base64.split(',')[1]
+                        
+                        try:
+                            image_bytes = base64.b64decode(image_base64)
+                            image_file_like = io.BytesIO(image_bytes)
+
+                            uploaded_file = await self.aclient.files.upload(
+                                file=image_file_like,
+                                config={
+                                    'mime_type': 'image/jpeg' 
+                                }
+                            )
+                            uploaded_file_objects.append(uploaded_file)
+                            uploaded_files_map[uploaded_file.name] = uploaded_file 
+                            screenshot_texts.append(f"Image {i+1}")
+                            
+                        except Exception as e:
+                            if uploaded_files_map:
+                                for name in uploaded_files_map:
+                                    await self.aclient.files.delete(name=name)
+                            raise HTTPException(status_code=500, detail=f"In-memory image upload failed: {str(e)}")
+                            
+                elif image_file:
                     uploaded_file = await self.aclient.files.upload(
                         file=image_file
                     )
-                    uploaded_file_name = uploaded_file.name
+                    uploaded_file_objects.append(uploaded_file)
+                    uploaded_files_map[uploaded_file.name] = uploaded_file 
+                    screenshot_texts = ["Image 1"]
 
-                    screenshot_texts = [f"Image reference: {uploaded_file_name}"]
-                    # screenshot_texts = None
-
-                prompt = self._create_prompt(
+                prompt_text = self._create_prompt(
                     transcription_text=combined_text,
-                    screenshot_texts=screenshot_texts,
+                    screenshot_texts=screenshot_texts, 
                     qa_type=qa_type,
                     format=output_format
                 )
 
-            
-                contents = [prompt]
-                if uploaded_file_name:
-                    # Append the uploaded file object to the contents list
-                    contents.append(uploaded_file) 
-
+                contents = [prompt_text]
+                contents.extend(uploaded_file_objects) 
+                
                 response_stream = await self.aclient.models.generate_content_stream(
                     model=self.gemini_model,
                     contents=contents
                 )
 
-                # 2d. Yield Chunks
                 async for chunk in response_stream:
                     if chunk.text:
                         yield chunk.text
-
         
             elif self.provider == "openai":
-                # NOTE: Image handling for OpenAI requires a more complex structure (e.g., base64 in messages)
-                # which is outside the scope of this fix, but the text streaming pattern is similar:
+                prompt_text = self._create_prompt(
+                    transcription_text=combined_text,
+                    screenshot_texts=None, 
+                    qa_type=qa_type,
+                    format=output_format
+                )
             
                 stream = await self.openai_client.chat.completions.create(
                     model="gpt-4o",
                     messages=[
                         {"role": "system", "content": "You are Whispa, a multimodal QA assistant."},
-                        {"role": "user", "content": prompt} # Simplified prompt for text-only
+                        {"role": "user", "content": prompt_text} 
                     ],
                     stream=True
                 )
@@ -205,7 +218,11 @@ class LLMClient:
                 raise HTTPException(status_code=400, detail=f"Unsupported provider: {self.provider}")
 
         finally:
-            if uploaded_file_name:
-                await self.aclient.files.delete(name=uploaded_file_name)
+            if uploaded_files_map and self.aclient:
+                for name in uploaded_files_map:
+                    try:
+                        await self.aclient.files.delete(name=name) 
+                    except Exception as e:
+                        print(f"Failed to delete uploaded file {name}: {e}") 
             if temp_file_path and os.path.exists(temp_file_path):
                 os.unlink(temp_file_path)

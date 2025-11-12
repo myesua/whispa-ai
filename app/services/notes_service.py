@@ -41,19 +41,24 @@ class NotesService:
         self.llm = llm 
     async def generate_notes_stream( 
         self,
-        image_base64: Optional[str] = None,
+        images_base64: Optional[list[str]] = None,
         voice_text: Optional[str] = None,
         provided_text: Optional[str] = None,
+        qa_type: Optional[str] = "general"
     ) -> AsyncGenerator[str, None]:
         """Calls the LLM stream and yields text chunks."""
-        if image_base64 and image_base64.startswith('data:image'):
-                image_base64 = image_base64.split(',')[1]
+        if images_base64:
+            for image_base64 in images_base64:
+                if image_base64.startswith('data:image'):
+                    image_base64 = image_base64.split(',')[1]
                 
         async for chunk in self.llm.analyze_multimodal(
-            image_base64=image_base64, 
+            images_base64=images_base64, 
             transcription=voice_text, 
-            text=provided_text
+            text=provided_text,
+            qa_type=qa_type
         ):
+            print(f"DEBUG: Yielding chunk size: {len(chunk) if chunk else 0}")
             yield chunk
             
     async def process_final_notes(self, markdown_text: str, voice_text: Optional[str], user_id: Optional[str], privacy_mode: bool, session_id: str):

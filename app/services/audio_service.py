@@ -4,17 +4,19 @@ from google.genai import Client
 from google.genai.errors import APIError 
 from typing import Optional
 from app.config import settings
-from app.utils.transcribe_audio import transcribe_base64_audio
+from app.utils.transcribe_audio import transcribe_file_path
 import aiofiles
 import os
 import tempfile
+
 class AudioService:
     def __init__(self):
         self.client = Client(api_key=settings.gemini_api_key) 
         self.aclient = self.client.aio
         self.model_name = "gemini-2.5-flash"
-        self.transcribe_base64_audio = transcribe_base64_audio
+        self.transcribe_file_path = transcribe_file_path
         self.gemini_key = settings.gemini_api_key
+
     def process_audio(self, audio_base64: str, file_suffix: str) -> str:
         try:
             text = self.transcribe_base64_audio(audio_base64, file_suffix)
@@ -23,12 +25,7 @@ class AudioService:
             return f"Invalid audio string: {str(e)}"
 
     async def transcribe_audio_with_gemini(self, audio_file: UploadFile) -> str:
-        """
-        Reads audio bytes, writes them to a temp file, uploads the file 
-        using the path, transcribes, and ensures cleanup of both the 
-        Gemini file and the local temp file.
-        """
-    
+        
         audio_bytes = await audio_file.read()
         mime_type = audio_file.content_type
     
@@ -82,4 +79,37 @@ class AudioService:
                     name=audio_file_upload.name 
                 )
             if temp_file_path and os.path.exists(temp_file_path):
-                os.unlink(temp_file_path) #
+                os.unlink(temp_file_path)
+    
+    async def transcribe_audio_with_faster_whisper(self, audio_file: UploadFile) -> str:
+        
+        await audio_file.seek(0)
+        audio_bytes = await audio_file.read()
+        mime_type = audio_file.content_type
+    
+        if not audio_bytes or not mime_type.startswith('audio/'):
+            raise HTTPException(status_code=400, detail="Invalid or empty audio file provided.")
+
+        temp_file_path = None
+
+        try:
+            suffix = "." + mime_type.split("/")[-1] if "/" in mime_type else ".tmp"
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                temp_file_path = tmp.name
+
+            async with aiofiles.open(temp_file_path, 'wb') as f:
+                await f.write(audio_bytes)
+
+            transcribed_text = self.transcribe_file_path(temp_file_path)
+        
+            return ' '.join(transcribed_text.split()).strip()
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Internal Server Error during transcription: {str(e)}")
+
+        finally:
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
