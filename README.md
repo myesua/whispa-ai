@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Whispa AI Notes App is an application designed to analyze screen captures and voice input to generate structured notes. It utilizes Optical Character Recognition (OCR) and / or AI model for image processing and transcribes audio input using Faster Whisper, ensuring all processes are handled in-memory to comply with data privacy standards.
+The Whispa AI Notes App is an application designed to analyze screen captures and voice input to generate structured notes. It utilizes AI model for image processing and transcribes audio input using Faster Whisper, ensuring all processes are handled in-memory to comply with data privacy standards.
 
 ## Features
 
@@ -32,7 +32,6 @@ whispa-ai-notes-app
 │   │   └── privacy.py
 │   └── deps.py
 ├── tests
-│   ├── test_ocr.py
 │   ├── test_audio.py
 │   └── test_notes.py
 ├── .env.example
@@ -77,7 +76,6 @@ You can then access the API at `http://127.0.0.1:8000`.
 
 ## API Endpoints
 
-- **POST /ocr**: Process an image to extract text.
 - **POST /audio**: Process audio input to convert speech to text.
 - **POST /notes**: Generate notes from processed image and audio data.
 

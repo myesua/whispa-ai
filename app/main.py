@@ -41,7 +41,7 @@ async def startup_event():
 app.include_router(auth.router)
 # Protect other routes with authentication
 app.include_router(notes.router, prefix="/v1/notes", tags=["notes"], dependencies=[Depends(get_current_user)])
-app.include_router(ocr.router, prefix="/v1/ocr", tags=["ocr"], dependencies=[Depends(get_current_user)])
+# app.include_router(ocr.router, prefix="/v1/ocr", tags=["ocr"], dependencies=[Depends(get_current_user)])
 app.include_router(audio.router, prefix="/v1/audio", tags=["audio"], dependencies=[Depends(get_current_user)])
 app.include_router(linear.router, prefix="/v1/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
 app.include_router(user.router, prefix="/v1/user", tags=["user"], dependencies=[Depends(get_current_user)])
@@ -49,7 +49,7 @@ app.include_router(attachments.router, prefix="/v1", tags=["attachments"])
 
 @app.get("/")
 async def root():   
-    return {"message": "Welcome to the Whispa AI Notes App!"}
+    return {"message": "Welcome to the Whispa AI QA Agent!"}
 
 
 # @app.post("/", tags=["OCR"])
