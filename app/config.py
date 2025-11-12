@@ -32,6 +32,7 @@ class Settings:
     supabase_url: str = os.getenv("SUPABASE_URL", "")
     supabase_service_role_key: str = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
     PORT: str = os.getenv("PORT", "5000")
+    api_base_url: str = os.getenv("API_BASE_URL", "")
 
 
 settings = Settings()

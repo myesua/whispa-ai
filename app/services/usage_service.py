@@ -18,15 +18,14 @@ class UsageService:
         today_str = date.today().isoformat()
         
         try:
-            response = self.supabase.table("user_usage").select("notes_count").eq("user_id", user_id).eq("day", today_str).single().execute()
+            response = self.supabase.table("user_usage").select("notes_count").eq("user_id", user_id).eq("day", today_str).maybe_single().execute()
             record_data = getattr(response, 'data', None)
             current_count = record_data['notes_count'] if record_data else 0
 
         except Exception as e:
-            if "No rows returned" in str(e) or "zero rows" in str(e).lower():
-                current_count = 0
-            else:
+            if "Database error during usage check:" in str(e): 
                 raise HTTPException(status_code=500, detail=f"Database error during usage check: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Unexpected database error: {str(e)}")
 
         if current_count >= DAILY_NOTE_LIMIT:
             raise HTTPException(

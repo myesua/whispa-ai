@@ -45,7 +45,7 @@ async def process_audio(audio_file: UploadFile = File(...)):
         TRANSCRIPTION_LATENCY_SECONDS.labels(provider=PROVIDER_LABEL).observe(process_time)
 
 
-@router.post("/transcribe/faster-whisper", summary="Upload and transcribe audio file using Faster-Whisper")
+@router.post("/transcribe/audio", summary="Upload and transcribe audio file using Faster-Whisper")
 async def process_audio_faster_whisper(audio_file: UploadFile = File(...)):
     PROVIDER_LABEL = 'faster_whisper' 
     start_time = time.time()

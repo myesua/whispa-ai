@@ -1,13 +1,25 @@
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI,Depends
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, notes, ocr, audio, linear, user
+from .routers import auth, notes, ocr, audio, linear, user, attachments
 from .middleware.auth import get_current_user
 from dotenv import load_dotenv
+from .dependencies import get_whisper_model 
+import logging
 from app.middleware.prometheus import PrometheusMiddleware, metrics_endpoint
+from app.services.clean_up_queue import cleanup_worker
+import asyncio
 
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+
 app = FastAPI()
+
+try:
+    get_whisper_model()
+    logging.info("Faster-Whisper model loading complete. System ready for transcription requests.")
+except Exception as e:
+    logging.error(f"CRITICAL ERROR: Failed to load Faster-Whisper model at startup: {e}")
 
 app.add_middleware(PrometheusMiddleware)
 
@@ -21,23 +33,29 @@ app.add_middleware(
 
 app.add_route("/metrics", metrics_endpoint)
 
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(cleanup_worker())
+    logging.info("Background cleanup worker task scheduled.")
+
 app.include_router(auth.router)
 # Protect other routes with authentication
-app.include_router(notes.router, prefix="/notes", tags=["notes"], dependencies=[Depends(get_current_user)])
-app.include_router(ocr.router, prefix="/ocr", tags=["ocr"], dependencies=[Depends(get_current_user)])
-app.include_router(audio.router, prefix="/audio", tags=["audio"], dependencies=[Depends(get_current_user)])
-app.include_router(linear.router, prefix="/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
-app.include_router(user.router, prefix="/user", tags=["user"], dependencies=[Depends(get_current_user)])
+app.include_router(notes.router, prefix="/v1/notes", tags=["notes"], dependencies=[Depends(get_current_user)])
+app.include_router(ocr.router, prefix="/v1/ocr", tags=["ocr"], dependencies=[Depends(get_current_user)])
+app.include_router(audio.router, prefix="/v1/audio", tags=["audio"], dependencies=[Depends(get_current_user)])
+app.include_router(linear.router, prefix="/v1/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
+app.include_router(user.router, prefix="/v1/user", tags=["user"], dependencies=[Depends(get_current_user)])
+app.include_router(attachments.router, prefix="/v1", tags=["attachments"])
 
 @app.get("/")
 async def root():   
     return {"message": "Welcome to the Whispa AI Notes App!"}
 
 
-@app.post("/", tags=["OCR"])
-async def root_post(request: Request):
-    """Accept POST / as shorthand for OCR processing (used by tests)."""
-    # Delegate to OCR router's process_ocr by calling its endpoint function indirectly
-    from app.routers.ocr import process_ocr
-    return await process_ocr(request)
+# @app.post("/", tags=["OCR"])
+# async def root_post(request: Request):
+#     """Accept POST / as shorthand for OCR processing (used by tests)."""
+#     # Delegate to OCR router's process_ocr by calling its endpoint function indirectly
+#     from app.routers.ocr import process_ocr
+#     return await process_ocr(request)
 

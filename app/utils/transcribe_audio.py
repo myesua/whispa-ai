@@ -1,15 +1,6 @@
 import base64
 import tempfile
-from faster_whisper import WhisperModel
-
-_whisper_model = None
-
-def get_whisper_model():
-    """Lazy-load the Faster-Whisper model once and reuse it."""
-    global _whisper_model
-    if _whisper_model is None:
-        _whisper_model = WhisperModel("small", device="cpu") 
-    return _whisper_model
+from app.dependencies import get_whisper_model 
 
 def transcribe_file_path(audio_path: str) -> str:
     try:

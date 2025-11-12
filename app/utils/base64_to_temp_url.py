@@ -27,7 +27,6 @@ async def base64_to_temp_url(base64_str: str, expires_in: int = 300) -> str:
         signed = supabase.storage.from_("temp").create_signed_url(path, expires_in)
         if not signed or not signed.get("signedURL"):
             raise HTTPException(status_code=500, detail="Failed to generate signed URL")
-
         return signed["signedURL"]
 
     except Exception as e:
