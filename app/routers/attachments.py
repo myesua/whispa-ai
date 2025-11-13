@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query
 from starlette.responses import Response
 from typing import Union
 
-router = APIRouter(prefix="/attachments", tags=["attachments"])
+router = APIRouter()
 
 @router.api_route('/proxy', methods=["GET", "HEAD"], summary="Securely proxies private Supabase images for Linear ingestion.")
 async def linear_image_proxy(file_path: str = Query(..., description="The internal path to the private Supabase file.")):
