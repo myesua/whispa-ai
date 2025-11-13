@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from app.services.supabase_client import supabase
 from prometheus_client import Counter 
 
-DAILY_NOTE_LIMIT = 15
+DAILY_NOTE_LIMIT = 10
 
 NOTES_GENERATED_TOTAL = Counter(
     'whispa_notes_generated_total', 'Total QA notes generated',

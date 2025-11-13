@@ -1,6 +1,6 @@
 from fastapi import FastAPI,Depends
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import auth, notes, ocr, audio, linear, user, attachments
+from .routers import auth, notes, audio, linear, user, attachments, enquiry, waitlist
 from .middleware.auth import get_current_user
 from dotenv import load_dotenv
 from .dependencies import get_whisper_model 
@@ -45,7 +45,9 @@ app.include_router(notes.router, prefix="/v1/notes", tags=["notes"], dependencie
 app.include_router(audio.router, prefix="/v1/audio", tags=["audio"], dependencies=[Depends(get_current_user)])
 app.include_router(linear.router, prefix="/v1/linear", tags=["linear"], dependencies=[Depends(get_current_user)])
 app.include_router(user.router, prefix="/v1/user", tags=["user"], dependencies=[Depends(get_current_user)])
-app.include_router(attachments.router, prefix="/v1", tags=["attachments"])
+app.include_router(attachments.router, prefix="/v1/attachments", tags=["attachments"])
+app.include_router(enquiry.router, prefix="/v1/enquiry", tags=["enquiry"])
+app.include_router(waitlist.router, prefix="/v1/waitlist", tags=["waitlist"])
 
 @app.get("/")
 async def root():   
