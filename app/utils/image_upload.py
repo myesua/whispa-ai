@@ -1,6 +1,6 @@
 import base64
 import uuid
-import os
+import urllib.parse
 from app.services.supabase_client import supabase
 from app.config import settings
 from fastapi import HTTPException
@@ -18,9 +18,12 @@ async def base64_to_proxy_url(base64_str: str) -> Tuple[str, str]:
             error_message = getattr(upload_res, 'error', 'Unknown error')
             raise HTTPException(status_code=500, detail=f"Upload failed: {error_message}")
 
-        proxy_url = os.path.join(
-            settings.api_base_url.rstrip("/"),
-            f"v1/attachments/proxy?file_path={file_path}"
+        api_path = f"v1/attachments/proxy?file_path={file_path}"
+        base_url = settings.api_base_url if settings.api_base_url else "/"
+
+        proxy_url = urllib.parse.urljoin(
+            base_url,
+            api_path
         )
         
         return proxy_url, file_path
