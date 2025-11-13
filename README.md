@@ -1,12 +1,11 @@
-# whispa-ai-notes-app
+# whispa-ai
 
 ## Overview
 
-The Whispa AI Notes App is an application designed to analyze screen captures and voice input to generate structured notes. It utilizes AI model for image processing and transcribes audio input using Faster Whisper, ensuring all processes are handled in-memory to comply with data privacy standards.
+The Whispa AI QA Agent is an application designed to analyze screen captures and voice input to generate structured notes. It utilizes AI model for image processing and transcribes audio input using Faster Whisper, ensuring all processes are handled in-memory to comply with data privacy standards.
 
 ## Features
 
-- **OCR Processing**: Convert images into text using OCR technology.
 - **Audio Processing**: Convert voice notes into text using Faster Whisper.
 - **Note Generation**: Combine text from images and audio to create structured notes.
 - **Data Privacy**: All processing is done in-memory, ensuring compliance with data privacy regulations.
@@ -19,11 +18,9 @@ whispa-ai-notes-app
 │   ├── main.py
 │   ├── config.py
 │   ├── routers
-│   │   ├── ocr.py
 │   │   ├── audio.py
 │   │   └── notes.py
 │   ├── services
-│   │   ├── ocr_service.py
 │   │   ├── audio_service.py
 │   │   └── notes_service.py
 │   ├── models
